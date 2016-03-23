@@ -42,6 +42,13 @@ RSpec::Matchers.define :make_database_queries do |options = {}|
     "#{count || 0} #{word}"
   end
 
+  def subscribed(callback, *args, &block)
+    subscriber = ActiveSupport::Notifications.subscribe(*args, &callback)
+    yield
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+  end
+
   define_method :matches? do |block|
     counter_options = {}
     if options[:manipulative]
@@ -57,9 +64,9 @@ RSpec::Matchers.define :make_database_queries do |options = {}|
       end
     end
     @counter = DBQueryMatchers::QueryCounter.new(counter_options)
-    ActiveSupport::Notifications.subscribed(@counter.to_proc,
-                                            'sql.active_record',
-                                            &block)
+    subscribed(@counter.to_proc,
+              'sql.active_record',
+              &block)
     if absolute_count = options[:count]
       absolute_count === @counter.count
     else
